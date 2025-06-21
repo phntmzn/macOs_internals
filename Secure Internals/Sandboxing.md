@@ -18,6 +18,7 @@ Here’s how to implement a simple sandbox simulation in Python by restricting f
 
 ```python
 import os
+import tempfile
 
 class PythonSandbox:
     def __init__(self, allowed_paths=None):
@@ -49,20 +50,35 @@ class PythonSandbox:
 # Example usage
 if __name__ == "__main__":
     # Define the allowed paths for the sandbox
-    allowed_paths = ['/Users/yourusername/Documents/safe_directory']
+    # Use a temporary directory as the allowed path
+    with tempfile.TemporaryDirectory() as safe_dir:
+        allowed_paths = [safe_dir]
 
-    # Create a sandbox instance with restricted access
-    sandbox = PythonSandbox(allowed_paths=allowed_paths)
+        # Create a sandbox instance with restricted access
+        sandbox = PythonSandbox(allowed_paths=allowed_paths)
 
-    # Try accessing files inside and outside the sandbox
-    try:
-        # This should succeed
-        sandbox.open_file('/Users/yourusername/Documents/safe_directory/file.txt')
+        # Try accessing files inside and outside the sandbox
+        try:
+            # This should succeed
+            # Create a temporary file inside the allowed directory
+            with tempfile.NamedTemporaryFile(dir=safe_dir, delete=False) as tmp:
+                tmp.write(b"Hello, sandbox!")
+                tmp_path = tmp.name
 
-        # This should fail
-        sandbox.open_file('/Users/yourusername/Documents/forbidden_directory/file.txt')
-    except PermissionError as e:
-        print(e)
+            # This should succeed
+            with sandbox.open_file(tmp_path, 'r') as f:
+                print(f.read())
+
+            # This should fail
+            # Create a temporary file outside the allowed directory (system temp dir)
+            with tempfile.NamedTemporaryFile(delete=False) as tmp_forbidden:
+                tmp_forbidden.write(b"Should not be accessible")
+                forbidden_path = tmp_forbidden.name
+
+            # This should fail
+            sandbox.open_file(forbidden_path)
+        except PermissionError as e:
+            print(e)
 ```
 
 ### Step 2: Explain the Code
